@@ -2,6 +2,36 @@
 
 [Demo](https://salarium.everaldo.dev/)
 
+Calculadora para MEI/PJ brasileiros descobrirem quanto reservar por mês para
+aproximar sua renda de um pacote CLT equivalente. A partir do salário bruto
+informado, calcula e permite ativar/desativar individualmente as seguintes
+reservas, com base na legislação vigente em 2026 (sem dependentes):
+
+- **INSS** — alíquotas progressivas por faixa (7,5% a 14%), com teto de contribuição.
+- **IRRF** — tabela progressiva, com a isenção/redução para renda até R$ 7.350
+  e escolha automática entre dedução legal (INSS) ou desconto simplificado
+  mensal, o que for mais vantajoso.
+- **FGTS** — 8% do salário bruto (custo do empregador no regime CLT).
+- **13º salário** — reserva mensal equivalente a 1/12 do salário.
+- **Férias** — reserva mensal equivalente a 1/12 do salário.
+- **1/3 constitucional de férias** — reserva mensal equivalente a 1/36 do salário.
+
+O app soma as reservas marcadas e mostra o valor líquido estimado que
+sobraria para o PJ, comparável ao salário líquido de um CLT. É um SPA React
+(Create React App) sem backend, sem banco de dados e sem autenticação — todo
+o cálculo acontece no navegador. A lógica de cálculo fica isolada em
+`src/businessRules.js` (com testes em `src/businessRules.test.js`), e a
+interface em `src/App.js`.
+
+## Como rodar localmente
+
+```bash
+npm install
+npm start   # inicia o app em modo de desenvolvimento (http://localhost:3000)
+npm test    # roda os testes das regras de negócio
+npm run build   # gera a build de produção em build/
+```
+
 ## CI/CD
 
 This repository includes GitHub Actions workflows for CI and deploy:

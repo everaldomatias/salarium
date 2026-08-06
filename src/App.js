@@ -14,6 +14,7 @@ import {
   calcularDecimoTerceiroMensal,
   calcularFeriasMensal,
   calcularTercoFeriasMensal,
+  MEI_LIMITE_FATURAMENTO_MENSAL_2026,
 } from './businessRules'
 
 function App() {
@@ -34,8 +35,9 @@ function App() {
   const [valor13, setValor13] = useState(0)
   const [valorFerias, setValorFerias] = useState(0)
   const [tercoFerias, setTercoFerias] = useState(0)
-  const [salarioRestante, setSalarioRestante] = useState(0)
-  const [totalDescontos, setTotalDescontos] = useState(0)
+  const [descontosReais, setDescontosReais] = useState(0)
+  const [reservasFuturas, setReservasFuturas] = useState(0)
+  const [disponivelImediato, setDisponivelImediato] = useState(0)
   const [aplicarINSS, setAplicarINSS] = useState(false)
   const [aplicarIRRF, setAplicarIRRF] = useState(false)
   const [aplicarFGTS, setAplicarFGTS] = useState(false)
@@ -55,23 +57,32 @@ function App() {
 
   const calcular = useCallback(() => {
     const salarioNumerico = parseFloat(salario) || 0
-    const resultadoINSS = aplicarINSS ? calcularINSS(salarioNumerico) : { desconto: 0, aliquota: '' }
+    // O INSS é sempre calculado, pois o IRRF depende dele como dedução legal
+    // mesmo quando o usuário não marcou "Reservar INSS" separadamente.
+    const resultadoINSS = calcularINSS(salarioNumerico)
     const resultadoIRRF = aplicarIRRF ? calcularIRRF(salarioNumerico, resultadoINSS.desconto) : {
       desconto: 0,
       aliquota: '',
       baseCalculo: 0,
       tipoDeducao: '',
     }
+    const descontoINSSAplicado = aplicarINSS ? resultadoINSS.desconto : 0
     const descontoFGTS = aplicarFGTS ? calcularFGTS(salarioNumerico) : 0
     const valor13Calculado = aplicar13 ? calcularDecimoTerceiroMensal(salarioNumerico) : 0
     const valorFeriasCalculado = aplicarFerias ? calcularFeriasMensal(salarioNumerico) : 0
     const tercoFeriasCalculado = aplicarTercoFerias ? calcularTercoFeriasMensal(salarioNumerico) : 0
 
-    const totalDescontosCalculado = resultadoINSS.desconto + resultadoIRRF.desconto + descontoFGTS + valor13Calculado + valorFeriasCalculado + tercoFeriasCalculado
-    const salarioRestanteCalculado = salarioNumerico - totalDescontosCalculado
+    // Descontos reais saem do bolso e não voltam (imposto/contribuição).
+    const descontosReaisCalculado = descontoINSSAplicado + resultadoIRRF.desconto
+    // Reservas futuras continuam sendo do PJ: é dinheiro guardado para pagar
+    // o próprio 13º/férias depois, não uma perda.
+    const reservasFuturasCalculado = descontoFGTS + valor13Calculado + valorFeriasCalculado + tercoFeriasCalculado
+    // O que sobra pra gastar este mês é o salário menos o que vai pro governo
+    // E menos o que o próprio PJ reservou — senão essas reservas contariam duas vezes.
+    const disponivelImediatoCalculado = salarioNumerico - descontosReaisCalculado - reservasFuturasCalculado
 
-    setDescontoINSS(resultadoINSS.desconto)
-    setAliquotaINSS(resultadoINSS.aliquota)
+    setDescontoINSS(descontoINSSAplicado)
+    setAliquotaINSS(aplicarINSS ? resultadoINSS.aliquota : '')
     setDescontoIRRF(resultadoIRRF.desconto)
     setAliquotaIRRF(resultadoIRRF.aliquota)
     setBaseIRRF(resultadoIRRF.baseCalculo)
@@ -80,8 +91,9 @@ function App() {
     setValor13(valor13Calculado)
     setValorFerias(valorFeriasCalculado)
     setTercoFerias(tercoFeriasCalculado)
-    setTotalDescontos(totalDescontosCalculado)
-    setSalarioRestante(salarioRestanteCalculado)
+    setDescontosReais(descontosReaisCalculado)
+    setReservasFuturas(reservasFuturasCalculado)
+    setDisponivelImediato(disponivelImediatoCalculado)
   }, [salario, aplicarINSS, aplicarIRRF, aplicarFGTS, aplicar13, aplicarFerias, aplicarTercoFerias])
 
   useEffect(() => {
@@ -94,7 +106,7 @@ function App() {
         <div className='container'>
           <div className='line block mb-2rem'>
             <h1>Salarium/ <img src={emojiAtual} alt="Emoji" /></h1>
-            <p>MEI, descubra quanto reservar por mês para aproximar sua renda PJ do pacote CLT equivalente.</p>
+            <p>PJ, descubra quanto reservar por mês para aproximar sua renda do pacote CLT equivalente.</p>
           </div>
 
           <div className='line mb-2rem'>
@@ -108,13 +120,23 @@ function App() {
             />
           </div>
 
+          {parseFloat(salario) > MEI_LIMITE_FATURAMENTO_MENSAL_2026 && (
+            <div className='line aviso mb-2rem'>
+              <p>
+                Atenção: um MEI não pode faturar mais que R$ {formatarMoeda(MEI_LIMITE_FATURAMENTO_MENSAL_2026 * 12)} por ano
+                (média de R$ {formatarMoeda(MEI_LIMITE_FATURAMENTO_MENSAL_2026)}/mês). Com esse valor, você provavelmente
+                não se enquadra mais como MEI e sua tributação real seria outra (Simples Nacional ou Lucro Presumido, por exemplo).
+              </p>
+            </div>
+          )}
+
           <div className='line'>
             <label>
               <input
                 type="checkbox"
                 checked={aplicarINSS}
                 onChange={(e) => setAplicarINSS(e.target.checked)}
-              /> Reservar INSS**
+              /> Recolher INSS**
             </label>
             <div className='reserva-detalhe'>
               {aplicarINSS && (
@@ -129,7 +151,7 @@ function App() {
                 type="checkbox"
                 checked={aplicarIRRF}
                 onChange={(e) => setAplicarIRRF(e.target.checked)}
-              /> Reservar IRRF**
+              /> Recolher IRRF**
             </label>
             <div className='reserva-detalhe'>
               {aplicarIRRF && (
@@ -199,13 +221,21 @@ function App() {
           </div>
 
           <div className='line mb-2rem'>
-            <p>Total de reservas: R$ {formatarMoeda(totalDescontos)}</p>
-          </div>
-          <div className='line resultado mb-2rem'>
-            <p>Valor líquido estimado para o PJ: R$ {formatarMoeda(salarioRestante)}</p>
+            <p>Você recolhe ao governo** (não volta): R$ {formatarMoeda(descontosReais)}</p>
           </div>
 
-          <p className='small'>*Custo do empregador no regime CLT. **Desconto efetivo em folha do trabalhador CLT.</p>
+          <div className='line resultados mb-2rem'>
+            <div className='resultado resultado-reserva'>
+              <p>Você guarda para o futuro*</p>
+              <p className='resultado-valor'>R$ {formatarMoeda(reservasFuturas)}</p>
+            </div>
+            <div className='resultado resultado-liquido'>
+              <p>Seu líquido estimado do mês</p>
+              <p className='resultado-valor'>R$ {formatarMoeda(disponivelImediato)}</p>
+            </div>
+          </div>
+
+          <p className='small'>*Custo do empregador no regime CLT — não é uma perda, é dinheiro que fica na sua própria conta, reservado para pagar o próprio 13º/férias depois. **Vai para o governo (INSS/IRRF) — não volta para você.</p>
           <p className='small'>Base informativa atualizada para 2026, sem dependentes. O IRRF usa a dedução legal ou o desconto simplificado mensal, o que for mais vantajoso.</p>
 
         </div>

@@ -15,7 +15,11 @@ const IRRF_BRACKETS_2026 = [
 
 const SIMPLIFIED_MONTHLY_DEDUCTION_2026 = 607.2
 
+const MEI_LIMITE_FATURAMENTO_ANUAL_2026 = 81000
+
 const roundCurrency = (value) => Number(value.toFixed(2))
+
+export const MEI_LIMITE_FATURAMENTO_MENSAL_2026 = roundCurrency(MEI_LIMITE_FATURAMENTO_ANUAL_2026 / 12)
 
 export const calcularINSS = (salarioBruto) => {
   if (salarioBruto <= 0) {
